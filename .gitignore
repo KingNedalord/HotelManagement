@@ -1,0 +1,66 @@
+
+# ── Build output ──────────────────────────────────────────────────────────────
+bin/
+obj/
+out/
+publish/
+
+# ── NuGet ─────────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+# NuGet restore lockfile (keep if you use locked mode, otherwise ignore)
+# package.lock.json
+
+# ── .NET runtime / SDK ────────────────────────────────────────────────────────
+*.user
+*.suo
+.vs/
+.vscode/
+*.userosscache
+*.sln.docstates
+
+# ── Rider / JetBrains ─────────────────────────────────────────────────────────
+.idea/
+*.sln.iml
+.editorconfig.bak
+
+# ── User secrets & local config ───────────────────────────────────────────────
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+# .NET user-secrets store (kept outside repo by default, but just in case)
+**/Properties/launchSettings.json
+
+# ── Test results & coverage ───────────────────────────────────────────────────
+TestResults/
+coverage/
+*.trx
+*.coveragexml
+*.coverage
+
+# ── Entity Framework migrations (optional – remove if you want to track them) ─
+# Migrations/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+Logs/
+
+# ── OS generated ──────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Temporary files ───────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
