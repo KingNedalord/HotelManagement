@@ -78,10 +78,9 @@ public sealed class RoomsController : ControllerBase
     [ProducesResponseType<IEnumerable<AvailableRoomResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAvailable(
-        [FromQuery] DateOnly startDate,
-        [FromQuery] DateOnly endDate)
+        [FromQuery] GetAvailableRoomsDto request)
     {
-        var rooms = await _service.GetAvailableRoomsAsync(startDate, endDate);
+        var rooms = await _service.GetAvailableRoomsAsync(request);
         return Ok(rooms);
     }
 

@@ -5,7 +5,6 @@ using HotelManagement.Exceptions;
 using HotelManagement.Models;
 using HotelManagement.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -36,12 +35,13 @@ public sealed class BookingService : IBookingService
     public async Task<BookingResponse> GetByIdAsync(int id)
     {
         var booking = await _context.Bookings
-            .FromSqlInterpolated($"SELECT * FROM get_booking_by_id({id})")
-            .FirstOrDefaultAsync()
-            ?? throw new NotFoundException(nameof(Bookings), id);
+                          .FromSqlInterpolated($"SELECT * FROM get_booking_by_id({id})")
+                          .FirstOrDefaultAsync()
+                      ?? throw new NotFoundException(nameof(Bookings), id);
 
         return ToResponse(booking);
     }
+
     public async Task<BookingResponse> CreateAsync(CreateBookingRequest request)
     {
         var checkIn = ToLocal(request.CheckIn);
@@ -54,41 +54,32 @@ public sealed class BookingService : IBookingService
 
         var userId = request.UserId.Value;
 
+        var pId = new NpgsqlParameter("p_id", NpgsqlDbType.Integer)
+        {
+            Direction = ParameterDirection.Output
+        };
+        var pCreatedAt = new NpgsqlParameter("p_created_at", NpgsqlDbType.Timestamp)
+        {
+            Direction = ParameterDirection.Output
+        };
+        var pUpdatedAt = new NpgsqlParameter("p_updated_at", NpgsqlDbType.Timestamp)
+        {
+            Direction = ParameterDirection.Output
+        };
+
         try
         {
-            var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
-            if (connection.State != ConnectionState.Open)
-                await connection.OpenAsync();
-
-            await using var command = new NpgsqlCommand("create_booking", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            if (_context.Database.CurrentTransaction != null)
-                command.Transaction = (NpgsqlTransaction)_context.Database.CurrentTransaction.GetDbTransaction();
-
-            command.Parameters.AddWithValue("p_room_id", request.RoomId);
-            command.Parameters.AddWithValue("p_user_id", userId);
-            command.Parameters.AddWithValue("p_check_in", checkIn);
-            command.Parameters.AddWithValue("p_check_out", checkOut);
-            command.Parameters.AddWithValue("p_is_paid", request.IsPaid);
-
-            var pId = new NpgsqlParameter("p_id", NpgsqlDbType.Integer)
-            {
-                Direction = ParameterDirection.Output
-            };
-            var pCreatedAt = new NpgsqlParameter("p_created_at", NpgsqlDbType.Timestamp)
-            {
-                Direction = ParameterDirection.Output
-            };
-            var pUpdatedAt = new NpgsqlParameter("p_updated_at", NpgsqlDbType.Timestamp)
-            {
-                Direction = ParameterDirection.Output
-            };
-
-            command.Parameters.Add(pId);
-            command.Parameters.Add(pCreatedAt);
-            command.Parameters.Add(pUpdatedAt);
-
-            await command.ExecuteNonQueryAsync();
+            await _context.Database.ExecuteSqlRawAsync(
+                "CALL create_booking(@p_room_id, @p_user_id, @p_check_in, @p_check_out, @p_is_paid, NULL, NULL, NULL)",
+                new NpgsqlParameter("p_room_id", request.RoomId),
+                new NpgsqlParameter("p_user_id", userId),
+                new NpgsqlParameter("p_check_in", checkIn),
+                new NpgsqlParameter("p_check_out", checkOut),
+                new NpgsqlParameter("p_is_paid", request.IsPaid),
+                pId,
+                pCreatedAt,
+                pUpdatedAt
+            );
 
             return new BookingResponse(
                 (int)pId.Value!,
@@ -105,7 +96,7 @@ public sealed class BookingService : IBookingService
         {
             throw new NotFoundException(ex.MessageText);
         }
-        catch (PostgresException ex) when (ex.SqlState == "22023" || ex.SqlState == "22004" || ex.SqlState == "23P01")
+        catch (PostgresException ex) when (ex.SqlState is "22023" or "22004" or "23P01")
         {
             throw new ArgumentException(ex.MessageText);
         }
@@ -114,8 +105,8 @@ public sealed class BookingService : IBookingService
     public async Task<BookingResponse> UpdateAsync(int id, UpdateBookingRequest request)
     {
         var booking = await _context.Bookings
-            .FirstOrDefaultAsync(b => b.Id == id)
-            ?? throw new NotFoundException(nameof(Bookings), id);
+                          .FirstOrDefaultAsync(b => b.Id == id)
+                      ?? throw new NotFoundException(nameof(Bookings), id);
 
         var checkIn = ToLocal(request.CheckIn);
         var checkOut = ToLocal(request.CheckOut);
@@ -146,8 +137,8 @@ public sealed class BookingService : IBookingService
     public async Task DeleteAsync(int id)
     {
         var booking = await _context.Bookings
-            .FirstOrDefaultAsync(b => b.Id == id)
-            ?? throw new NotFoundException(nameof(Bookings), id);
+                          .FirstOrDefaultAsync(b => b.Id == id)
+                      ?? throw new NotFoundException(nameof(Bookings), id);
 
         booking.IsDeleted = true;
 

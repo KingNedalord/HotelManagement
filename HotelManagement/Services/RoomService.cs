@@ -77,23 +77,16 @@ public sealed class RoomService : IRoomService
         {
             RoomNumber = request.RoomNumber,
             RoomType = request.RoomType,
-            NumberOfBeds = request.NumberOfBeds
+            NumberOfBeds = request.NumberOfBeds,
+            Prices = request.Prices.Select(p => new Price
+            {
+                CurrencyId = p.CurrencyId,
+                Amount = p.Amount
+            }).ToList()
         };
+
         await _context.Rooms.AddAsync(room);
         await _context.SaveChangesAsync();
-
-        if (hasPrices)
-        {
-            var prices = request.Prices.Select(price => new Price
-            {
-                RoomId = room.Id,
-                CurrencyId = price.CurrencyId,
-                Amount = price.Amount
-            }).ToList();
-
-            await _context.Prices.AddRangeAsync(prices);
-            await _context.SaveChangesAsync();
-        }
 
         await transaction.CommitAsync();
 
@@ -153,14 +146,17 @@ public sealed class RoomService : IRoomService
     }
 
     public async Task<IEnumerable<AvailableRoomResponse>> GetAvailableRoomsAsync(
-        DateOnly startDate, DateOnly endDate)
+        GetAvailableRoomsDto request)
     {
-        if (startDate >= endDate)
+        if (request.StartDate >= request.EndDate)
             throw new ArgumentException("Start date must be before end date.");
+
+        var page = request.Page < 1 ? 1 : request.Page;
+        var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
 
         return await _context.Database
             .SqlQuery<AvailableRoomResponse>(
-                $"SELECT * FROM get_available_rooms({startDate}, {endDate})")
+                $"SELECT * FROM get_available_rooms({request.StartDate}, {request.EndDate}, {page}, {pageSize})")
             .ToListAsync();
     }
 

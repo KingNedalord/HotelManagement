@@ -9,5 +9,5 @@ public interface IRoomService
     Task<RoomResponse> CreateAsync(CreateRoomRequest request);
     Task<RoomResponse> UpdateAsync(int id, UpdateRoomRequest request);
     Task DeleteAsync(int id);
-    Task<IEnumerable<AvailableRoomResponse>> GetAvailableRoomsAsync(DateOnly startDate, DateOnly endDate);
+    Task<IEnumerable<AvailableRoomResponse>> GetAvailableRoomsAsync(GetAvailableRoomsDto request);
 }
