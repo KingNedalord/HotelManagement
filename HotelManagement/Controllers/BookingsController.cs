@@ -1,4 +1,5 @@
 using HotelManagement.DTOs;
+using HotelManagement.Enums;
 using HotelManagement.Models;
 using HotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -24,9 +25,9 @@ public sealed class BookingsController : ControllerBase
     [ProducesResponseType<PagedResult<BookingResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAll([FromQuery]PaginationRequestDto requestDto)
     {
-        var result = await _service.GetAllAsync(page, pageSize);
+        var result = await _service.GetAllAsync(requestDto.Page, requestDto.PageSize);
         return Ok(result);
     }
 
@@ -81,7 +82,7 @@ public sealed class BookingsController : ControllerBase
 
     /// <summary>Soft-deletes a booking (sets IsDeleted = true) (Admin only).</summary>
     [Authorize(Roles = nameof(Role.Admin))]
-    [HttpPut("delete/{id:int}")]
+    [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]

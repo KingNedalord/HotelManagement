@@ -62,9 +62,7 @@ public sealed class AuthService : IAuthService
             Username = request.Username,
             Email = request.Email,
             Phone = request.Phone,
-            Role = request.Role,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            Role = request.Role
         };
 
         user.Password = _passwordHasher.HashPassword(user, request.Password);

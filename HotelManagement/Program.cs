@@ -16,7 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<HotelDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .UseSnakeCaseNamingConvention());
 
 // ── JWT Options & Authentication ──────────────────────────────────────────────
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);

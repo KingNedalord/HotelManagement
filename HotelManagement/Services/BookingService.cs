@@ -22,18 +22,15 @@ public sealed class BookingService : IBookingService
 
     public async Task<PagedResult<BookingResponse>> GetAllAsync(int page, int pageSize)
     {
-        var all = await _context.Bookings
-            .FromSqlInterpolated($"SELECT * FROM get_all_bookings()")
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var totalCount = await _context.Bookings.CountAsync();
+        var items = await _context.Bookings
+            .FromSqlInterpolated($"SELECT * FROM get_all_bookings({page}, {pageSize})")
             .ToListAsync();
 
-        var totalCount = all.Count;
-        var items = all
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(ToResponse)
-            .ToList();
-
-        return new PagedResult<BookingResponse>(items, page, pageSize, totalCount);
+        return new PagedResult<BookingResponse>(items.Select(ToResponse), page, pageSize, totalCount);
     }
 
     public async Task<BookingResponse> GetByIdAsync(int id)
@@ -45,7 +42,6 @@ public sealed class BookingService : IBookingService
 
         return ToResponse(booking);
     }
-
     public async Task<BookingResponse> CreateAsync(CreateBookingRequest request)
     {
         var checkIn = ToLocal(request.CheckIn);
@@ -121,13 +117,26 @@ public sealed class BookingService : IBookingService
             .FirstOrDefaultAsync(b => b.Id == id)
             ?? throw new NotFoundException(nameof(Bookings), id);
 
-        if (request.CheckOut <= request.CheckIn)
+        var checkIn = ToLocal(request.CheckIn);
+        var checkOut = ToLocal(request.CheckOut);
+
+        if (checkOut <= checkIn)
             throw new ArgumentException("Check-out date must be after check-in date.");
 
-        booking.CheckIn = ToLocal(request.CheckIn);
-        booking.CheckOut = ToLocal(request.CheckOut);
+        var hasOverlap = await _context.Bookings.AsNoTracking().AnyAsync(b =>
+            b.RoomId == booking.RoomId &&
+            b.Id != id &&
+            b.CheckIn < checkOut &&
+            b.CheckOut > checkIn);
+
+        if (hasOverlap)
+        {
+            throw new ArgumentException($"Room {booking.RoomId} is not available for the updated date range.");
+        }
+
+        booking.CheckIn = checkIn;
+        booking.CheckOut = checkOut;
         booking.IsPaid = request.IsPaid;
-        booking.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
 
@@ -141,7 +150,6 @@ public sealed class BookingService : IBookingService
             ?? throw new NotFoundException(nameof(Bookings), id);
 
         booking.IsDeleted = true;
-        booking.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
     }

@@ -18,18 +18,15 @@ public sealed class RoomService : IRoomService
 
     public async Task<PagedResult<RoomResponse>> GetAllAsync(int page, int pageSize)
     {
-        var all = await _context.Rooms
-            .FromSqlInterpolated($"SELECT * FROM get_all_rooms()")
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var totalCount = await _context.Rooms.CountAsync();
+        var items = await _context.Rooms
+            .FromSqlInterpolated($"SELECT * FROM get_all_rooms({page}, {pageSize})")
             .ToListAsync();
 
-        var totalCount = all.Count;
-        var items = all
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(ToResponse)
-            .ToList();
-
-        return new PagedResult<RoomResponse>(items, page, pageSize, totalCount);
+        return new PagedResult<RoomResponse>(items.Select(ToResponse), page, pageSize, totalCount);
     }
 
     public async Task<RoomResponse> GetByIdAsync(int id)
@@ -51,35 +48,54 @@ public sealed class RoomService : IRoomService
             throw new ArgumentException($"Room with number '{request.RoomNumber}' already exists.");
         }
 
+        var hasPrices = request.Prices is { Count: > 0 };
+
+        if (hasPrices)
+        {
+            if (request.Prices.Select(p => p.CurrencyId).Distinct().Count() != request.Prices.Count)
+            {
+                throw new ArgumentException("A room cannot have duplicate prices for the same currency.");
+            }
+
+            if (request.Prices.Any(p => p.Amount <= 0))
+            {
+                throw new ArgumentException("Price amounts must be greater than zero.");
+            }
+
+            var requestedCurrencyIds = request.Prices.Select(p => p.CurrencyId).ToHashSet();
+            var validCurrenciesCount = await _context.Currencies.AsNoTracking()
+                .CountAsync(c => requestedCurrencyIds.Contains(c.Id));
+            if (validCurrenciesCount != requestedCurrencyIds.Count)
+            {
+                throw new ArgumentException("One or more specified currencies do not exist.");
+            }
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var room = new Room
         {
             RoomNumber = request.RoomNumber,
             RoomType = request.RoomType,
-            NumberOfBeds = request.NumberOfBeds,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            NumberOfBeds = request.NumberOfBeds
         };
-        _context.Rooms.Add(room);
+        await _context.Rooms.AddAsync(room);
         await _context.SaveChangesAsync();
 
-        var roomId = await _context.Rooms.AsNoTracking().Where(r => r.RoomNumber == request.RoomNumber)
-            .Select(r => r.Id).FirstOrDefaultAsync();
-        var prices = new List<Price>();
-        // todo check for identical currencyids
-        foreach (var price in request.Prices)
+        if (hasPrices)
         {
-            prices.Add(new Price
+            var prices = request.Prices.Select(price => new Price
             {
-                RoomId = roomId,
-                CurrencyId =  price.CurrencyId,
-                Amount = price.Amount,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
-            });
+                RoomId = room.Id,
+                CurrencyId = price.CurrencyId,
+                Amount = price.Amount
+            }).ToList();
+
+            await _context.Prices.AddRangeAsync(prices);
+            await _context.SaveChangesAsync();
         }
 
-        await _context.Prices.AddRangeAsync(prices);
-        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return ToResponse(room);
     }
@@ -104,7 +120,6 @@ public sealed class RoomService : IRoomService
         room.RoomType = request.RoomType;
         room.NumberOfBeds = request.NumberOfBeds;
         room.Status = request.Status;
-        room.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
 
@@ -117,8 +132,22 @@ public sealed class RoomService : IRoomService
                        .FirstOrDefaultAsync(r => r.Id == id)
                    ?? throw new NotFoundException(nameof(Room), id);
 
+        var prices = await _context.Prices.Where(p => p.RoomId == id).ToListAsync();
+        foreach (var price in prices)
+        {
+            price.IsDeleted = true;
+        }
+
+        var bookings = await _context.Bookings
+            .Where(b => b.RoomId == id)
+            .ToListAsync();
+
+        foreach (var booking in bookings)
+        {
+            booking.IsDeleted = true;
+        }
+
         room.IsDeleted = true;
-        room.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
     }
@@ -136,5 +165,5 @@ public sealed class RoomService : IRoomService
     }
 
     private static RoomResponse ToResponse(Room r) =>
-        new(r.Id, r.RoomNumber, r.RoomType, r.NumberOfBeds, r.Status, r.CreatedAt, r.UpdatedAt);
+        new(r.Id, r.RoomNumber, r.RoomType, r.NumberOfBeds, r.Status, r.CreatedAt);
 }

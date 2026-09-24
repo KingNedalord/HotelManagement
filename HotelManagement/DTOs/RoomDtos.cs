@@ -1,3 +1,4 @@
+using HotelManagement.Enums;
 using HotelManagement.Models;
 
 namespace HotelManagement.DTOs;
@@ -21,5 +22,4 @@ public record RoomResponse(
     RoomType RoomType,
     int NumberOfBeds,
     RoomStatus Status,
-    DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime CreatedAt);

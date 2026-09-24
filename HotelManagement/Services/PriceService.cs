@@ -18,18 +18,15 @@ public sealed class PriceService : IPriceService
 
     public async Task<PagedResult<PriceResponse>> GetAllAsync(int page, int pageSize)
     {
-        var all = await _context.Prices
-            .FromSqlInterpolated($"SELECT * FROM get_all_prices()")
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var totalCount = await _context.Prices.CountAsync();
+        var items = await _context.Prices
+            .FromSqlInterpolated($"SELECT * FROM get_all_prices({page}, {pageSize})")
             .ToListAsync();
 
-        var totalCount = all.Count;
-        var items = all
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(ToResponse)
-            .ToList();
-
-        return new PagedResult<PriceResponse>(items, page, pageSize, totalCount);
+        return new PagedResult<PriceResponse>(items.Select(ToResponse), page, pageSize, totalCount);
     }
 
     public async Task<PriceResponse> GetByIdAsync(int id)
@@ -56,13 +53,16 @@ public sealed class PriceService : IPriceService
         if (request.Amount <= 0)
             throw new ArgumentException("Amount must be greater than zero.");
 
+        var priceExists = await _context.Prices.AsNoTracking().AnyAsync(p =>
+            p.RoomId == request.RoomId && p.CurrencyId == request.CurrencyId);
+        if (priceExists)
+            throw new ArgumentException("A price entry for this room and currency already exists.");
+
         var price = new Price
         {
             RoomId = request.RoomId,
             CurrencyId = request.CurrencyId,
             Amount = request.Amount,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
         };
 
         _context.Prices.Add(price);
@@ -84,13 +84,27 @@ public sealed class PriceService : IPriceService
         if (request.Amount <= 0)
             throw new ArgumentException("Amount must be greater than zero.");
 
+        var duplicate = await _context.Prices.AsNoTracking().AnyAsync(p =>
+            p.RoomId == price.RoomId && p.CurrencyId == request.CurrencyId && p.Id != id);
+        if (duplicate)
+            throw new ArgumentException("A price entry for this room and currency already exists.");
+
         price.CurrencyId = request.CurrencyId;
         price.Amount = request.Amount;
-        price.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
 
         return ToResponse(price);
+    }
+
+    public async Task<IEnumerable<PriceResponse>> GetByRoomIdAsync(int roomId)
+    {
+        var prices = await _context.Prices
+            .AsNoTracking()
+            .Where(p => p.RoomId == roomId)
+            .ToListAsync();
+
+        return prices.Select(ToResponse);
     }
 
     public async Task DeleteAsync(int id)
@@ -100,7 +114,6 @@ public sealed class PriceService : IPriceService
                     ?? throw new NotFoundException(nameof(Price), id);
 
         price.IsDeleted = true;
-        price.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
     }

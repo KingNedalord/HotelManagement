@@ -1,4 +1,5 @@
 using HotelManagement.DTOs;
+using HotelManagement.Enums;
 using HotelManagement.Models;
 using HotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -24,9 +25,9 @@ public sealed class PricesController : ControllerBase
     [ProducesResponseType<PagedResult<PriceResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAll([FromQuery]PaginationRequestDto requestDto)
     {
-        var result = await _service.GetAllAsync(page, pageSize);
+        var result = await _service.GetAllAsync(requestDto.Page, requestDto.PageSize);
         return Ok(result);
     }
 
@@ -40,6 +41,18 @@ public sealed class PricesController : ControllerBase
     {
         var price = await _service.GetByIdAsync(id);
         return Ok(price);
+    }
+
+    /// <summary>Returns all active prices for a specific room (Admin only).</summary>
+    [HttpGet("room/{roomId:int}")]
+    [ProducesResponseType<IEnumerable<PriceResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByRoomId(int roomId)
+    {
+        var prices = await _service.GetByRoomIdAsync(roomId);
+        return Ok(prices);
     }
 
     /// <summary>Creates a new price entry. Validates that room and currency exist (Admin only).</summary>
@@ -69,7 +82,7 @@ public sealed class PricesController : ControllerBase
     }
 
     /// <summary>Soft-deletes a price (sets IsDeleted = true) (Admin only).</summary>
-    [HttpPut("delete/{id:int}")]
+    [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]

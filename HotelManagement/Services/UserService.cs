@@ -21,18 +21,15 @@ public sealed class UserService : IUserService
 
     public async Task<PagedResult<UserResponse>> GetAllAsync(int page, int pageSize)
     {
-        var all = await _context.Users
-            .FromSqlInterpolated($"SELECT * FROM get_all_users()")
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var totalCount = await _context.Users.CountAsync();
+        var items = await _context.Users
+            .FromSqlInterpolated($"SELECT * FROM get_all_users({page}, {pageSize})")
             .ToListAsync();
 
-        var totalCount = all.Count;
-        var items = all
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(ToResponse)
-            .ToList();
-
-        return new PagedResult<UserResponse>(items, page, pageSize, totalCount);
+        return new PagedResult<UserResponse>(items.Select(ToResponse), page, pageSize, totalCount);
     }
 
     public async Task<UserResponse> GetByIdAsync(int id)
@@ -59,9 +56,7 @@ public sealed class UserService : IUserService
             Username = request.Username,
             Email = request.Email,
             Phone = request.Phone,
-            Role = request.Role,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            Role = request.Role
         };
 
         user.Password = _passwordHasher.HashPassword(user, request.Password);
@@ -89,7 +84,6 @@ public sealed class UserService : IUserService
         user.Email = request.Email;
         user.Phone = request.Phone;
         user.Role = request.Role;
-        user.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
 
@@ -102,8 +96,16 @@ public sealed class UserService : IUserService
                        .FirstOrDefaultAsync(u => u.Id == id)
                    ?? throw new NotFoundException(nameof(User), id);
 
+        var bookings = await _context.Bookings
+            .Where(b => b.UserId == id)
+            .ToListAsync();
+
+        foreach (var booking in bookings)
+        {
+            booking.IsDeleted = true;
+        }
+
         user.IsDeleted = true;
-        user.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
     }
