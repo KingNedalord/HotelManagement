@@ -1,0 +1,13 @@
+namespace HotelManagement.Core.Application.Common.Constraints;
+
+/// <summary>Wraps a paginated list of items with metadata.</summary>
+public record PagedResult<T>(
+    IEnumerable<T> Items,
+    int Page,
+    int PageSize,
+    int TotalCount)
+{
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasPreviousPage => Page > 1;
+    public bool HasNextPage => Page < TotalPages;
+}

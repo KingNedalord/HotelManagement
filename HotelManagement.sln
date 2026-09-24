@@ -1,10 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotelManagement.Core", "HotelManagement.Core\HotelManagement.Core.csproj", "{479668B4-5DA9-48C6-8827-1795A1279AFD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core", "Core\Core.csproj", "{479668B4-5DA9-48C6-8827-1795A1279AFD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotelManagement.WebCore", "HotelManagement.WebCore\HotelManagement.WebCore.csproj", "{74DACF6E-3216-4483-8A78-F6EC3020BC6A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebCore", "WebCore\WebCore.csproj", "{74DACF6E-3216-4483-8A78-F6EC3020BC6A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotelManagement.WebApi", "HotelManagement.WebApi\HotelManagement.WebApi.csproj", "{5E4A98A7-7255-497F-B7F8-D950A8FB0142}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi", "WebApi\WebApi.csproj", "{5E4A98A7-7255-497F-B7F8-D950A8FB0142}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
